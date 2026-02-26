@@ -238,3 +238,63 @@ class AriVaEngine:
         self._oracle = ARIVA_ORACLE
         self._sentinel = ARIVA_SENTINEL
 
+    def _require_coordinator(self, caller: str) -> None:
+        if caller != self._coordinator:
+            raise AriVaNotCoordinator()
+
+    def _new_session_id(self) -> str:
+        raw = f"{ARIVA_SESSION_SALT}{time.time()}{uuid.uuid4().hex}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+    def create_session(self, user_ref: str, caller: str) -> str:
+        self._require_coordinator(caller)
+        if not user_ref:
+            raise AriVaZeroDisallowed()
+        if user_ref not in self.state.user_sessions:
+            self.state.user_sessions[user_ref] = []
+        if len(self.state.user_sessions[user_ref]) >= MAX_SESSIONS_PER_USER:
+            raise AriVaSessionLimitReached()
+        session_id = self._new_session_id()
+        now = time.time()
+        self.state.sessions[session_id] = AssistantSession(
+            session_id=session_id,
+            user_ref=user_ref,
+            status=int(SessionStatus.ACTIVE),
+            created_at=now,
+            last_activity_at=now,
+            query_count=0,
+            context_buffer="",
+        )
+        self.state.user_sessions[user_ref].append(session_id)
+        return session_id
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        if session_id not in self.state.sessions:
+            return None
+        s = self.state.sessions[session_id]
+        return {
+            "session_id": s.session_id,
+            "user_ref": s.user_ref,
+            "status": s.status,
+            "created_at": s.created_at,
+            "last_activity_at": s.last_activity_at,
+            "query_count": s.query_count,
+        }
+
+    def close_session(self, session_id: str, caller: str) -> None:
+        self._require_coordinator(caller)
+        if session_id not in self.state.sessions:
+            raise AriVaSessionNotFound()
+        s = self.state.sessions[session_id]
+        s.status = int(SessionStatus.CLOSED)
+        if s.user_ref in self.state.user_sessions:
+            self.state.user_sessions[s.user_ref] = [
+                x for x in self.state.user_sessions[s.user_ref] if x != session_id
+            ]
+
+    def update_context(self, session_id: str, context: str, caller: str) -> None:
+        self._require_coordinator(caller)
+        if session_id not in self.state.sessions:
+            raise AriVaSessionNotFound()
+        if len(context) > CODE_CONTEXT_WINDOW:
+            raise AriVaContextOverflow()
