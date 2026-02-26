@@ -298,3 +298,63 @@ class AriVaEngine:
             raise AriVaSessionNotFound()
         if len(context) > CODE_CONTEXT_WINDOW:
             raise AriVaContextOverflow()
+        s = self.state.sessions[session_id]
+        s.context_buffer = context
+        s.last_activity_at = time.time()
+
+    def validate_code(self, code: str) -> List[Dict[str, Any]]:
+        results = _run_all_validation_rules(code)
+        return [
+            {
+                "passed": r.passed,
+                "rule_id": r.rule_id,
+                "message": r.message,
+                "line": r.line,
+                "column": r.column,
+            }
+            for r in results
+        ]
+
+    def get_completions(
+        self,
+        session_id: str,
+        prefix: str,
+        line_context: str,
+        language: str,
+        max_n: int = MAX_COMPLETIONS_PER_LINE,
+    ) -> List[Dict[str, Any]]:
+        if session_id not in self.state.sessions:
+            raise AriVaSessionNotFound()
+        if len(prefix) > MAX_QUERY_LEN or len(line_context) > MAX_QUERY_LEN:
+            raise AriVaQueryTooLong()
+        if max_n > MAX_COMPLETIONS_PER_LINE:
+            max_n = MAX_COMPLETIONS_PER_LINE
+        s = self.state.sessions[session_id]
+        s.last_activity_at = time.time()
+        s.query_count += 1
+        self.state.request_count += 1
+        completions = _fake_completions(prefix, line_context, language, max_n)
+        self.state.total_suggestions_served += len(completions)
+        return completions
+
+    def get_suggestions(
+        self,
+        session_id: str,
+        query: str,
+        kind: int,
+        max_n: int = MAX_SUGGESTIONS_PER_REQUEST,
+    ) -> List[Dict[str, Any]]:
+        if session_id not in self.state.sessions:
+            raise AriVaSessionNotFound()
+        if len(query) < MIN_QUERY_LEN:
+            raise AriVaQueryTooShort()
+        if len(query) > MAX_QUERY_LEN:
+            raise AriVaQueryTooLong()
+        if max_n > MAX_SUGGESTIONS_PER_REQUEST:
+            raise AriVaSuggestionLimitReached()
+        s = self.state.sessions[session_id]
+        s.last_activity_at = time.time()
+        s.query_count += 1
+        self.state.request_count += 1
+        suggestions = _fake_suggestions(query, kind, max_n)
+        self.state.total_suggestions_served += len(suggestions)
