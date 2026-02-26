@@ -598,3 +598,63 @@ def _run_full_validation(code: str) -> List[ValidationResult]:
 
 
 # -----------------------------------------------------------------------------
+# Request handler (JSON API style)
+# -----------------------------------------------------------------------------
+def handle_ariva_request(
+    platform: AriVaPlatform,
+    method: str,
+    params: Dict[str, Any],
+) -> Dict[str, Any]:
+    coord = ARIVA_COORDINATOR
+    try:
+        if method == "config":
+            return platform.api_config()
+        if method == "create_session":
+            return platform.api_create_session(
+                params.get("user_ref", ""),
+                params.get("caller", coord),
+            )
+        if method == "get_session":
+            return platform.api_get_session(params.get("session_id", ""))
+        if method == "close_session":
+            return platform.api_close_session(
+                params.get("session_id", ""),
+                params.get("caller", coord),
+            )
+        if method == "update_context":
+            return platform.api_update_context(
+                params.get("session_id", ""),
+                params.get("context", ""),
+                params.get("caller", coord),
+            )
+        if method == "validate_code":
+            return platform.api_validate_code(params.get("code", ""))
+        if method == "get_completions":
+            return platform.api_get_completions(
+                params.get("session_id", ""),
+                params.get("prefix", ""),
+                params.get("line_context", ""),
+                params.get("language", "py"),
+                params.get("max_n", MAX_COMPLETIONS_PER_LINE),
+            )
+        if method == "get_suggestions":
+            return platform.api_get_suggestions(
+                params.get("session_id", ""),
+                params.get("query", ""),
+                params.get("kind", 0),
+                params.get("max_n", MAX_SUGGESTIONS_PER_REQUEST),
+            )
+        if method == "stats":
+            return platform.api_stats()
+        if method == "cleanup_stale":
+            n = cleanup_stale_sessions(platform._engine)
+            return {"removed": n}
+        return {"error": f"Unknown method: {method}"}
+    except AriVaNotCoordinator as e:
+        return {"error": "AriVaNotCoordinator", "message": str(e)}
+    except AriVaSessionNotFound as e:
+        return {"error": "AriVaSessionNotFound", "message": str(e)}
+    except AriVaSessionLimitReached as e:
+        return {"error": "AriVaSessionLimitReached", "message": str(e)}
+    except AriVaQueryTooShort as e:
+        return {"error": "AriVaQueryTooShort", "message": str(e)}
