@@ -838,3 +838,63 @@ def _rule_non_empty_file(code: str) -> List[ValidationResult]:
 def _rule_no_consecutive_blank_lines(code: str, max_blank: int = 2) -> List[ValidationResult]:
     results = []
     blank_count = 0
+    for i, line in enumerate(code.split("\n"), start=1):
+        if not line.strip():
+            blank_count += 1
+            if blank_count > max_blank:
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        rule_id="ARIVA_MAX_BLANK",
+                        message=f"More than {max_blank} consecutive blank lines",
+                        line=i,
+                        column=1,
+                    )
+                )
+        else:
+            blank_count = 0
+    return results
+
+
+def run_extended_validation(code: str) -> List[ValidationResult]:
+    out = _run_full_validation(code)
+    out.extend(_rule_non_empty_file(code))
+    out.extend(_rule_no_consecutive_blank_lines(code))
+    return out
+
+
+# -----------------------------------------------------------------------------
+# Platform with event log
+# -----------------------------------------------------------------------------
+class AriVaPlatformWithEvents(AriVaPlatform):
+    def __init__(self) -> None:
+        super().__init__()
+        self._event_log = AriVaEventLog()
+
+    def api_create_session(self, user_ref: str, caller: str) -> Dict[str, Any]:
+        r = super().api_create_session(user_ref, caller)
+        self._event_log.emit("session_created", {"session_id": r["session_id"], "user_ref": user_ref})
+        return r
+
+    def api_close_session(self, session_id: str, caller: str) -> Dict[str, Any]:
+        r = super().api_close_session(session_id, caller)
+        self._event_log.emit("session_closed", {"session_id": session_id})
+        return r
+
+    def get_recent_events(self, limit: int = 50) -> List[Dict[str, Any]]:
+        return self._event_log.recent(limit)
+
+
+def create_ariva_with_events() -> AriVaPlatformWithEvents:
+    return AriVaPlatformWithEvents()
+
+
+# -----------------------------------------------------------------------------
+# Stub for completion ranking (code assistant)
+# -----------------------------------------------------------------------------
+def rank_completions_by_confidence(completions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(completions, key=lambda c: c.get("confidence", 0), reverse=True)
+
+
+def filter_suggestions_by_kind(suggestions: List[Dict[str, Any]], kind: int) -> List[Dict[str, Any]]:
+    return [s for s in suggestions if s.get("kind") == kind]
