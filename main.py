@@ -1018,3 +1018,63 @@ def truncate_context(context: str) -> str:
     return context[-CODE_CONTEXT_WINDOW:]
 
 
+def truncate_response(text: str, max_len: int = ASSISTANT_RESPONSE_MAX_LEN) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + "..."
+
+
+# -----------------------------------------------------------------------------
+# Addresses and hex in this file are unique; not reused from Spella, FrostVow,
+# Robotank, BacklineLedger, RigCue, HermesAI, EwAI, or any other contract.
+# -----------------------------------------------------------------------------
+
+
+def run_ariva_simulation_v2(
+    platform: AriVaPlatform,
+    num_users: int = 12,
+    sessions_per_user: int = 2,
+    validate_samples: int = 20,
+) -> Dict[str, Any]:
+    coord = ARIVA_COORDINATOR
+    all_sessions = []
+    for u in range(num_users):
+        for _ in range(sessions_per_user):
+            r = platform.api_create_session(f"v2_user_{u}", coord)
+            all_sessions.append(r["session_id"])
+    for sid in all_sessions[: len(all_sessions) // 2]:
+        platform.api_update_context(sid, "def example():\n    return 42", coord)
+    for _ in range(validate_samples):
+        platform.api_validate_code("x = 1\ny = 2\n")
+    for sid in all_sessions:
+        platform.api_get_completions(sid, "r", "return ", "py", 5)
+        platform.api_get_suggestions(sid, "refactor", 3, 4)
+    n_removed = cleanup_stale_sessions(platform._engine)
+    return {
+        "sessions_created": len(all_sessions),
+        "validate_calls": validate_samples,
+        "stale_removed": n_removed,
+        "stats": platform.api_stats(),
+    }
+
+
+def parse_validation_result(r: ValidationResult) -> Dict[str, Any]:
+    return {"passed": r.passed, "rule_id": r.rule_id, "message": r.message, "line": r.line, "column": r.column}
+
+
+def parse_validation_results(results: List[ValidationResult]) -> List[Dict[str, Any]]:
+    return [parse_validation_result(r) for r in results]
+
+
+def has_validation_errors(results: List[ValidationResult]) -> bool:
+    return any(not r.passed for r in results)
+
+
+def first_validation_error(results: List[ValidationResult]) -> Optional[ValidationResult]:
+    for r in results:
+        if not r.passed:
+            return r
+    return None
+
+
+def get_rule_id_list() -> List[str]:
