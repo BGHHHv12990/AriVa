@@ -718,3 +718,63 @@ def run_ariva_demo(platform: AriVaPlatform) -> Dict[str, Any]:
     platform.api_update_context(sid, "def bar(): pass", coord)
     return {"session_id": sid, "validate": r2, "completions_count": len(r3.get("completions", [])), "suggestions_count": len(r4.get("suggestions", []))}
 
+
+def batch_handle_ariva(platform: AriVaPlatform, requests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [handle_ariva_request(platform, r.get("method", ""), r.get("params", {})) for r in requests]
+
+
+# -----------------------------------------------------------------------------
+# Language-specific helpers (code assistant)
+# -----------------------------------------------------------------------------
+SUPPORTED_LANGUAGES = ["py", "js", "ts", "sol", "rs", "go", "java", "cpp"]
+
+
+def is_supported_language(lang: str) -> bool:
+    return lang.lower() in SUPPORTED_LANGUAGES
+
+
+def normalize_language(lang: str) -> str:
+    return lang.lower() if lang else "py"
+
+
+def get_language_comment_prefix(lang: str) -> str:
+    m = {"py": "#", "js": "//", "ts": "//", "sol": "//", "rs": "//", "go": "//", "java": "//", "cpp": "//"}
+    return m.get(normalize_language(lang), "#")
+
+
+def get_rule_ids() -> List[str]:
+    return ["ARIVA_NO_TRAILING_WS", "ARIVA_MAX_LINE_LEN", "ARIVA_BALANCED_BRACES", "ARIVA_NO_TABS", "ARIVA_INDENT"]
+
+
+def validate_with_ruleset(code: str, rule_ids: Optional[List[str]] = None) -> List[ValidationResult]:
+    all_results = _run_full_validation(code)
+    if not rule_ids:
+        return all_results
+    return [r for r in all_results if r.rule_id in rule_ids]
+
+
+def suggestion_kind_name(kind: int) -> str:
+    names = ["Completion", "Fix", "Hint", "Refactor"]
+    return names[kind] if 0 <= kind < len(names) else "Unknown"
+
+
+def session_status_name(status: int) -> str:
+    names = ["Active", "Idle", "Closed"]
+    return names[status] if 0 <= status < len(names) else "Unknown"
+
+
+def format_validation_results_for_display(results: List[Dict[str, Any]]) -> List[str]:
+    return [
+        f"{r.get('rule_id', '?')}: {r.get('message', '')} (line {r.get('line', 0)}, col {r.get('column', 0)})"
+        for r in results
+    ]
+
+
+def compute_context_hash(context: str) -> str:
+    return hashlib.sha256((ARIVA_DOMAIN_SALT + context).encode()).hexdigest()[:24]
+
+
+def compute_session_fingerprint(session_id: str, user_ref: str) -> str:
+    return hashlib.sha256((ARIVA_SESSION_SALT + session_id + user_ref).encode()).hexdigest()[:32]
+
+
