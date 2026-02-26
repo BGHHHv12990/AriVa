@@ -358,3 +358,63 @@ class AriVaEngine:
         self.state.request_count += 1
         suggestions = _fake_suggestions(query, kind, max_n)
         self.state.total_suggestions_served += len(suggestions)
+        return suggestions
+
+    def config_snapshot(self) -> Dict[str, Any]:
+        return {
+            "coordinator": self._coordinator,
+            "vault": self._vault,
+            "relay": self._relay,
+            "oracle": self._oracle,
+            "sentinel": self._sentinel,
+            "domain_salt": ARIVA_DOMAIN_SALT,
+            "session_salt": ARIVA_SESSION_SALT,
+            "completion_seed": ARIVA_COMPLETION_SEED,
+        }
+
+
+def _fake_completions(
+    prefix: str, line_context: str, language: str, max_n: int
+) -> List[Dict[str, Any]]:
+    out = []
+    for i in range(min(max_n, 5)):
+        token = f"token_{language}_{hashlib.sha256((prefix + str(i)).encode()).hexdigest()[:8]}"
+        out.append({
+            "text": token,
+            "kind": int(SuggestionKind.COMPLETION),
+            "confidence": 0.7 + i * 0.05,
+        })
+    return out
+
+
+def _fake_suggestions(query: str, kind: int, max_n: int) -> List[Dict[str, Any]]:
+    out = []
+    for i in range(min(max_n, 4)):
+        out.append({
+            "suggestion_id": hashlib.sha256((query + str(i) + ARIVA_COMPLETION_SEED).encode()).hexdigest()[:16],
+            "kind": kind,
+            "text": f"suggestion_{i}",
+            "confidence": 0.8 - i * 0.1,
+        })
+    return out
+
+
+# -----------------------------------------------------------------------------
+# Unified API (single entry)
+# -----------------------------------------------------------------------------
+class AriVaPlatform:
+    def __init__(self) -> None:
+        self._engine = AriVaEngine()
+
+    @property
+    def engine(self) -> AriVaEngine:
+        return self._engine
+
+    def api_create_session(self, user_ref: str, caller: str) -> Dict[str, Any]:
+        sid = self._engine.create_session(user_ref, caller)
+        return {"session_id": sid, "user_ref": user_ref}
+
+    def api_get_session(self, session_id: str) -> Dict[str, Any]:
+        out = self._engine.get_session(session_id)
+        if out is None:
+            return {"error": "AriVaSessionNotFound"}
