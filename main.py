@@ -478,3 +478,63 @@ def _is_eth_address(addr: str) -> bool:
         int(addr[2:], 16)
         return True
     except ValueError:
+        return False
+
+
+def confirm_ariva_addresses_unique() -> bool:
+    addrs = [ARIVA_COORDINATOR, ARIVA_VAULT, ARIVA_RELAY, ARIVA_ORACLE, ARIVA_SENTINEL]
+    return len(addrs) == len(set(addrs)) and all(_is_eth_address(a) for a in addrs)
+
+
+def confirm_ariva_hex_unique() -> bool:
+    salts = [ARIVA_DOMAIN_SALT, ARIVA_SESSION_SALT, ARIVA_COMPLETION_SEED]
+    return len(salts) == len(set(salts))
+
+
+# -----------------------------------------------------------------------------
+# Event log (code assistant events)
+# -----------------------------------------------------------------------------
+@dataclass
+class AriVaEvent:
+    event_type: str
+    payload: Dict[str, Any]
+    timestamp: float
+    event_id: str
+
+
+class AriVaEventLog:
+    def __init__(self, max_events: int = 5000) -> None:
+        self._events: List[AriVaEvent] = []
+        self._max = max_events
+
+    def emit(self, event_type: str, payload: Dict[str, Any]) -> str:
+        eid = str(uuid.uuid4())
+        self._events.append(
+            AriVaEvent(
+                event_type=event_type,
+                payload={**payload, "event_id": eid},
+                timestamp=time.time(),
+                event_id=eid,
+            )
+        )
+        while len(self._events) > self._max:
+            self._events.pop(0)
+        return eid
+
+    def recent(self, limit: int = 100) -> List[Dict[str, Any]]:
+        out = self._events[-limit:]
+        return [
+            {"event_type": e.event_type, "payload": e.payload, "timestamp": e.timestamp}
+            for e in reversed(out)
+        ]
+
+
+# -----------------------------------------------------------------------------
+# Session cleanup (stale sessions)
+# -----------------------------------------------------------------------------
+def cleanup_stale_sessions(engine: AriVaEngine) -> int:
+    now = time.time()
+    to_close = []
+    for sid, s in engine.state.sessions.items():
+        if s.status != int(SessionStatus.ACTIVE):
+            continue
