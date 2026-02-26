@@ -538,3 +538,63 @@ def cleanup_stale_sessions(engine: AriVaEngine) -> int:
     for sid, s in engine.state.sessions.items():
         if s.status != int(SessionStatus.ACTIVE):
             continue
+        if now - s.last_activity_at > MAX_SESSION_DURATION_SEC:
+            to_close.append(sid)
+    for sid in to_close:
+        s = engine.state.sessions[sid]
+        s.status = int(SessionStatus.CLOSED)
+        if s.user_ref in engine.state.user_sessions:
+            engine.state.user_sessions[s.user_ref] = [
+                x for x in engine.state.user_sessions[s.user_ref] if x != sid
+            ]
+    return len(to_close)
+
+
+# -----------------------------------------------------------------------------
+# Additional validation rules
+# -----------------------------------------------------------------------------
+def _rule_no_tabs(code: str) -> List[ValidationResult]:
+    results = []
+    for i, line in enumerate(code.split("\n"), start=1):
+        if "\t" in line:
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    rule_id="ARIVA_NO_TABS",
+                    message="Use spaces instead of tabs",
+                    line=i,
+                    column=line.index("\t") + 1,
+                )
+            )
+    return results
+
+
+def _rule_indent_consistent(code: str, spaces: int = 4) -> List[ValidationResult]:
+    results = []
+    for i, line in enumerate(code.split("\n"), start=1):
+        if not line.strip():
+            continue
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        if indent % spaces != 0:
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    rule_id="ARIVA_INDENT",
+                    message=f"Indent must be multiple of {spaces}",
+                    line=i,
+                    column=1,
+                )
+            )
+    return results
+
+
+def _run_full_validation(code: str) -> List[ValidationResult]:
+    out = []
+    out.extend(_run_all_validation_rules(code))
+    out.extend(_rule_no_tabs(code))
+    out.extend(_rule_indent_consistent(code))
+    return out
+
+
+# -----------------------------------------------------------------------------
