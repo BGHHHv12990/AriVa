@@ -178,3 +178,63 @@ def _rule_max_line_length(code: str, max_len: int = 120) -> List[ValidationResul
             )
     return results
 
+
+def _rule_balanced_braces(code: str) -> List[ValidationResult]:
+    stack = []
+    open_b = {"(": ")", "[": "]", "{": "}"}
+    close_b = set(open_b.values())
+    for i, c in enumerate(code):
+        if c in open_b:
+            stack.append((open_b[c], i))
+        elif c in close_b:
+            if not stack or stack[-1][0] != c:
+                line = code[:i].count("\n") + 1
+                col = i - code.rfind("\n", 0, i) if "\n" in code[:i] else i + 1
+                results = [
+                    ValidationResult(
+                        passed=False,
+                        rule_id="ARIVA_BALANCED_BRACES",
+                        message="Unbalanced bracket",
+                        line=line,
+                        column=col,
+                    )
+                ]
+                return results
+            stack.pop()
+    if stack:
+        _, pos = stack[-1]
+        line = code[:pos].count("\n") + 1
+        return [
+            ValidationResult(
+                passed=False,
+                rule_id="ARIVA_BALANCED_BRACES",
+                message="Unclosed bracket",
+                line=line,
+                column=0,
+            )
+        ]
+    return []
+
+
+def _run_all_validation_rules(code: str) -> List[ValidationResult]:
+    out = []
+    out.extend(_rule_no_trailing_whitespace(code))
+    out.extend(_rule_max_line_length(code))
+    out.extend(_rule_balanced_braces(code))
+    return out
+
+
+# -----------------------------------------------------------------------------
+# Core engine
+# -----------------------------------------------------------------------------
+class AriVaEngine:
+    """Code assistant engine: sessions, suggestions, completions, validation."""
+
+    def __init__(self) -> None:
+        self.state = AriVaState()
+        self._coordinator = ARIVA_COORDINATOR
+        self._vault = ARIVA_VAULT
+        self._relay = ARIVA_RELAY
+        self._oracle = ARIVA_ORACLE
+        self._sentinel = ARIVA_SENTINEL
+
