@@ -418,3 +418,63 @@ class AriVaPlatform:
         out = self._engine.get_session(session_id)
         if out is None:
             return {"error": "AriVaSessionNotFound"}
+        return out
+
+    def api_close_session(self, session_id: str, caller: str) -> Dict[str, Any]:
+        self._engine.close_session(session_id, caller)
+        return {"session_id": session_id}
+
+    def api_update_context(self, session_id: str, context: str, caller: str) -> Dict[str, Any]:
+        self._engine.update_context(session_id, context, caller)
+        return {"session_id": session_id}
+
+    def api_validate_code(self, code: str) -> Dict[str, Any]:
+        results = self._engine.validate_code(code)
+        return {"results": results, "passed": all(r["passed"] for r in results) is False or len(results) == 0}
+
+    def api_get_completions(
+        self,
+        session_id: str,
+        prefix: str,
+        line_context: str,
+        language: str,
+        max_n: int = MAX_COMPLETIONS_PER_LINE,
+    ) -> Dict[str, Any]:
+        comps = self._engine.get_completions(session_id, prefix, line_context, language, max_n)
+        return {"completions": comps}
+
+    def api_get_suggestions(
+        self,
+        session_id: str,
+        query: str,
+        kind: int = 0,
+        max_n: int = MAX_SUGGESTIONS_PER_REQUEST,
+    ) -> Dict[str, Any]:
+        sugs = self._engine.get_suggestions(session_id, query, kind, max_n)
+        return {"suggestions": sugs}
+
+    def api_config(self) -> Dict[str, Any]:
+        return self._engine.config_snapshot()
+
+    def api_stats(self) -> Dict[str, Any]:
+        return {
+            "request_count": self._engine.state.request_count,
+            "total_suggestions_served": self._engine.state.total_suggestions_served,
+            "active_sessions": sum(1 for s in self._engine.state.sessions.values() if s.status == int(SessionStatus.ACTIVE)),
+        }
+
+
+def create_ariva() -> AriVaPlatform:
+    return AriVaPlatform()
+
+
+# -----------------------------------------------------------------------------
+# Address/hex uniqueness confirmation
+# -----------------------------------------------------------------------------
+def _is_eth_address(addr: str) -> bool:
+    if not addr or len(addr) != 42 or not addr.startswith("0x"):
+        return False
+    try:
+        int(addr[2:], 16)
+        return True
+    except ValueError:
