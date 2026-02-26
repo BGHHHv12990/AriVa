@@ -898,3 +898,63 @@ def rank_completions_by_confidence(completions: List[Dict[str, Any]]) -> List[Di
 
 def filter_suggestions_by_kind(suggestions: List[Dict[str, Any]], kind: int) -> List[Dict[str, Any]]:
     return [s for s in suggestions if s.get("kind") == kind]
+
+
+# -----------------------------------------------------------------------------
+# Constants for display (ManivA)
+# -----------------------------------------------------------------------------
+def get_display_constants() -> Dict[str, Any]:
+    return {
+        "coordinator": ARIVA_COORDINATOR,
+        "vault": ARIVA_VAULT,
+        "relay": ARIVA_RELAY,
+        "oracle": ARIVA_ORACLE,
+        "sentinel": ARIVA_SENTINEL,
+        "domain_salt": ARIVA_DOMAIN_SALT[:18] + "...",
+        "session_salt": ARIVA_SESSION_SALT[:18] + "...",
+        "completion_seed": ARIVA_COMPLETION_SEED[:18] + "...",
+        "max_suggestions": MAX_SUGGESTIONS_PER_REQUEST,
+        "max_completions": MAX_COMPLETIONS_PER_LINE,
+        "max_session_duration_sec": MAX_SESSION_DURATION_SEC,
+        "max_sessions_per_user": MAX_SESSIONS_PER_USER,
+        "code_context_window": CODE_CONTEXT_WINDOW,
+    }
+
+
+def run_ariva_simulation(platform: AriVaPlatform, num_sessions: int = 8, queries_per_session: int = 5) -> Dict[str, Any]:
+    coord = ARIVA_COORDINATOR
+    created = []
+    for i in range(num_sessions):
+        r = platform.api_create_session(f"sim_user_{i}", coord)
+        created.append(r["session_id"])
+    total_completions = 0
+    total_suggestions = 0
+    for sid in created:
+        for j in range(queries_per_session):
+            platform.api_get_completions(sid, f"pre_{j}", f"line {j}", "py", 4)
+            total_completions += 4
+            platform.api_get_suggestions(sid, f"query {j}", j % 4, 3)
+            total_suggestions += 3
+    cleanup_stale_sessions(platform._engine)
+    return {
+        "sessions_created": len(created),
+        "total_completions": total_completions,
+        "total_suggestions": total_suggestions,
+        "stats": platform.api_stats(),
+    }
+
+
+def get_coordinator_address() -> str:
+    return ARIVA_COORDINATOR
+
+
+def get_vault_address() -> str:
+    return ARIVA_VAULT
+
+
+def get_relay_address() -> str:
+    return ARIVA_RELAY
+
+
+def get_oracle_address() -> str:
+    return ARIVA_ORACLE
