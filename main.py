@@ -958,3 +958,63 @@ def get_relay_address() -> str:
 
 def get_oracle_address() -> str:
     return ARIVA_ORACLE
+
+
+def get_sentinel_address() -> str:
+    return ARIVA_SENTINEL
+
+
+def get_domain_salt() -> str:
+    return ARIVA_DOMAIN_SALT
+
+
+def get_session_salt() -> str:
+    return ARIVA_SESSION_SALT
+
+
+def get_completion_seed() -> str:
+    return ARIVA_COMPLETION_SEED
+
+
+def get_max_suggestions_per_request() -> int:
+    return MAX_SUGGESTIONS_PER_REQUEST
+
+
+def get_max_completions_per_line() -> int:
+    return MAX_COMPLETIONS_PER_LINE
+
+
+def get_max_session_duration_sec() -> int:
+    return MAX_SESSION_DURATION_SEC
+
+
+def get_max_sessions_per_user() -> int:
+    return MAX_SESSIONS_PER_USER
+
+
+def get_min_query_len() -> int:
+    return MIN_QUERY_LEN
+
+
+def get_max_query_len() -> int:
+    return MAX_QUERY_LEN
+
+
+def get_code_context_window() -> int:
+    return CODE_CONTEXT_WINDOW
+
+
+def validate_query_length(query: str) -> bool:
+    return MIN_QUERY_LEN <= len(query) <= MAX_QUERY_LEN
+
+
+def validate_context_length(context: str) -> bool:
+    return len(context) <= CODE_CONTEXT_WINDOW
+
+
+def truncate_context(context: str) -> str:
+    if len(context) <= CODE_CONTEXT_WINDOW:
+        return context
+    return context[-CODE_CONTEXT_WINDOW:]
+
+
