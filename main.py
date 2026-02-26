@@ -58,3 +58,63 @@ class AriVaNotCoordinator(Exception):
 
 
 class AriVaSessionNotFound(Exception):
+    """Session id does not exist."""
+
+
+class AriVaSessionLimitReached(Exception):
+    """Max sessions per user reached."""
+
+
+class AriVaQueryTooShort(Exception):
+    """Query length below minimum."""
+
+
+class AriVaQueryTooLong(Exception):
+    """Query length above maximum."""
+
+
+class AriVaSuggestionLimitReached(Exception):
+    """Too many suggestions in one request."""
+
+
+class AriVaZeroDisallowed(Exception):
+    """Zero address or empty required value."""
+
+
+class AriVaValidationFailed(Exception):
+    """Code validation rule failed."""
+
+
+class AriVaContextOverflow(Exception):
+    """Code context exceeds window size."""
+
+
+# -----------------------------------------------------------------------------
+# Data models
+# -----------------------------------------------------------------------------
+@dataclass
+class SuggestionRecord:
+    kind: int
+    text: str
+    offset_start: int
+    offset_end: int
+    confidence: float
+    rule_id: Optional[str]
+    created_at: float
+
+
+@dataclass
+class ValidationResult:
+    passed: bool
+    rule_id: str
+    message: str
+    line: Optional[int]
+    column: Optional[int]
+
+
+@dataclass
+class AssistantSession:
+    session_id: str
+    user_ref: str
+    status: int
+    created_at: float
