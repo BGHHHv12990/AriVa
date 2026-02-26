@@ -658,3 +658,63 @@ def handle_ariva_request(
         return {"error": "AriVaSessionLimitReached", "message": str(e)}
     except AriVaQueryTooShort as e:
         return {"error": "AriVaQueryTooShort", "message": str(e)}
+    except AriVaQueryTooLong as e:
+        return {"error": "AriVaQueryTooLong", "message": str(e)}
+    except AriVaSuggestionLimitReached as e:
+        return {"error": "AriVaSuggestionLimitReached", "message": str(e)}
+    except AriVaZeroDisallowed as e:
+        return {"error": "AriVaZeroDisallowed", "message": str(e)}
+    except AriVaContextOverflow as e:
+        return {"error": "AriVaContextOverflow", "message": str(e)}
+    except Exception as e:
+        return {"error": "Internal", "message": str(e)}
+
+
+def list_ariva_methods() -> List[str]:
+    return [
+        "config", "create_session", "get_session", "close_session",
+        "update_context", "validate_code", "get_completions", "get_suggestions",
+        "stats", "cleanup_stale",
+    ]
+
+
+def get_all_ariva_constants() -> Dict[str, Any]:
+    return {
+        "ARIVA_COORDINATOR": ARIVA_COORDINATOR,
+        "ARIVA_VAULT": ARIVA_VAULT,
+        "ARIVA_RELAY": ARIVA_RELAY,
+        "ARIVA_ORACLE": ARIVA_ORACLE,
+        "ARIVA_SENTINEL": ARIVA_SENTINEL,
+        "ARIVA_DOMAIN_SALT": ARIVA_DOMAIN_SALT,
+        "ARIVA_SESSION_SALT": ARIVA_SESSION_SALT,
+        "ARIVA_COMPLETION_SEED": ARIVA_COMPLETION_SEED,
+        "MAX_SUGGESTIONS_PER_REQUEST": MAX_SUGGESTIONS_PER_REQUEST,
+        "MAX_COMPLETIONS_PER_LINE": MAX_COMPLETIONS_PER_LINE,
+        "MAX_SESSION_DURATION_SEC": MAX_SESSION_DURATION_SEC,
+        "MAX_SESSIONS_PER_USER": MAX_SESSIONS_PER_USER,
+        "MIN_QUERY_LEN": MIN_QUERY_LEN,
+        "MAX_QUERY_LEN": MAX_QUERY_LEN,
+        "CODE_CONTEXT_WINDOW": CODE_CONTEXT_WINDOW,
+        "VALIDATION_RULESET_VERSION": VALIDATION_RULESET_VERSION,
+    }
+
+
+def health_check_ariva(platform: AriVaPlatform) -> Dict[str, Any]:
+    return {
+        "ok": confirm_ariva_addresses_unique() and confirm_ariva_hex_unique(),
+        "addresses_unique": confirm_ariva_addresses_unique(),
+        "hex_unique": confirm_ariva_hex_unique(),
+        "stats": platform.api_stats(),
+    }
+
+
+def run_ariva_demo(platform: AriVaPlatform) -> Dict[str, Any]:
+    coord = ARIVA_COORDINATOR
+    r1 = platform.api_create_session("demo_user", coord)
+    sid = r1["session_id"]
+    r2 = platform.api_validate_code("def foo():\n  x = 1  \n")
+    r3 = platform.api_get_completions(sid, "imp", "import ", "py", 3)
+    r4 = platform.api_get_suggestions(sid, "fix typo", 1, 2)
+    platform.api_update_context(sid, "def bar(): pass", coord)
+    return {"session_id": sid, "validate": r2, "completions_count": len(r3.get("completions", [])), "suggestions_count": len(r4.get("suggestions", []))}
+
