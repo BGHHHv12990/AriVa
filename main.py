@@ -778,3 +778,63 @@ def compute_session_fingerprint(session_id: str, user_ref: str) -> str:
     return hashlib.sha256((ARIVA_SESSION_SALT + session_id + user_ref).encode()).hexdigest()[:32]
 
 
+# -----------------------------------------------------------------------------
+# Export / serialization
+# -----------------------------------------------------------------------------
+def export_sessions_summary(engine: AriVaEngine) -> Dict[str, Any]:
+    sessions = []
+    for s in engine.state.sessions.values():
+        sessions.append({
+            "session_id": s.session_id,
+            "user_ref": s.user_ref,
+            "status": s.status,
+            "query_count": s.query_count,
+            "created_at": s.created_at,
+        })
+    return {"sessions": sessions, "total": len(sessions)}
+
+
+def export_stats_json(platform: AriVaPlatform) -> str:
+    return json.dumps(platform.api_stats(), indent=2)
+
+
+def export_config_json(platform: AriVaPlatform) -> str:
+    return json.dumps(platform.api_config(), indent=2)
+
+
+# -----------------------------------------------------------------------------
+# Request templates for ManivA / Ama
+# -----------------------------------------------------------------------------
+def get_request_templates() -> Dict[str, Dict[str, Any]]:
+    coord = ARIVA_COORDINATOR
+    return {
+        "create_session": {"user_ref": "user_1", "caller": coord},
+        "get_session": {"session_id": "<session_id>"},
+        "close_session": {"session_id": "<session_id>", "caller": coord},
+        "update_context": {"session_id": "<session_id>", "context": "def foo(): pass", "caller": coord},
+        "validate_code": {"code": "def bar():\n  pass"},
+        "get_completions": {"session_id": "<session_id>", "prefix": "im", "line_context": "import ", "language": "py", "max_n": 5},
+        "get_suggestions": {"session_id": "<session_id>", "query": "suggest fix", "kind": 1, "max_n": 10},
+    }
+
+
+# -----------------------------------------------------------------------------
+# Additional validation: empty file, duplicate lines (demo rules)
+# -----------------------------------------------------------------------------
+def _rule_non_empty_file(code: str) -> List[ValidationResult]:
+    if not code.strip():
+        return [
+            ValidationResult(
+                passed=False,
+                rule_id="ARIVA_NON_EMPTY",
+                message="File must not be empty",
+                line=1,
+                column=1,
+            )
+        ]
+    return []
+
+
+def _rule_no_consecutive_blank_lines(code: str, max_blank: int = 2) -> List[ValidationResult]:
+    results = []
+    blank_count = 0
