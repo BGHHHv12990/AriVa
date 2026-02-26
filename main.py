@@ -118,3 +118,63 @@ class AssistantSession:
     user_ref: str
     status: int
     created_at: float
+    last_activity_at: float
+    query_count: int
+    context_buffer: str
+
+
+@dataclass
+class CompletionRequest:
+    session_id: str
+    prefix: str
+    line_context: str
+    language: str
+    max_completions: int
+
+
+# -----------------------------------------------------------------------------
+# In-memory state
+# -----------------------------------------------------------------------------
+class AriVaState:
+    def __init__(self) -> None:
+        self.sessions: Dict[str, AssistantSession] = {}
+        self.user_sessions: Dict[str, List[str]] = {}
+        self.suggestion_log: List[Dict[str, Any]] = []
+        self.request_count: int = 0
+        self.total_suggestions_served: int = 0
+
+
+# -----------------------------------------------------------------------------
+# Validation rules (code assistant style)
+# -----------------------------------------------------------------------------
+def _rule_no_trailing_whitespace(code: str) -> List[ValidationResult]:
+    results = []
+    for i, line in enumerate(code.split("\n"), start=1):
+        if line != line.rstrip() and line.strip():
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    rule_id="ARIVA_NO_TRAILING_WS",
+                    message="Trailing whitespace",
+                    line=i,
+                    column=len(line) - len(line.rstrip()) + 1,
+                )
+            )
+    return results
+
+
+def _rule_max_line_length(code: str, max_len: int = 120) -> List[ValidationResult]:
+    results = []
+    for i, line in enumerate(code.split("\n"), start=1):
+        if len(line) > max_len:
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    rule_id="ARIVA_MAX_LINE_LEN",
+                    message=f"Line exceeds {max_len} characters",
+                    line=i,
+                    column=max_len + 1,
+                )
+            )
+    return results
+
