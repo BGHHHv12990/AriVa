@@ -1198,3 +1198,63 @@ def suggestion_confidence_threshold() -> float:
 
 
 def filter_completions_by_confidence(completions: List[Dict[str, Any]], min_conf: float = 0.5) -> List[Dict[str, Any]]:
+    return [c for c in completions if c.get("confidence", 0) >= min_conf]
+
+
+def filter_suggestions_by_confidence(suggestions: List[Dict[str, Any]], min_conf: float = 0.6) -> List[Dict[str, Any]]:
+    return [s for s in suggestions if s.get("confidence", 0) >= min_conf]
+
+
+def validate_session_id_format(session_id: str) -> bool:
+    return isinstance(session_id, str) and len(session_id) >= 16 and len(session_id) <= 64 and session_id.isalnum() or (session_id.replace("-", "").replace("_", "").isalnum())
+
+
+def validate_user_ref_format(user_ref: str) -> bool:
+    return isinstance(user_ref, str) and len(user_ref) >= 1 and len(user_ref) <= 256
+
+
+def sanitize_context_for_window(context: str) -> str:
+    return truncate_context(context)
+
+
+def sanitize_query_for_limit(query: str) -> str:
+    if len(query) <= MAX_QUERY_LEN:
+        return query
+    return query[:MAX_QUERY_LEN]
+
+
+def build_update_context_params(session_id: str, context: str) -> Dict[str, Any]:
+    return {"session_id": session_id, "context": sanitize_context_for_window(context), "caller": ARIVA_COORDINATOR}
+
+
+def build_close_session_params(session_id: str) -> Dict[str, Any]:
+    return {"session_id": session_id, "caller": ARIVA_COORDINATOR}
+
+
+def build_get_session_params(session_id: str) -> Dict[str, Any]:
+    return {"session_id": session_id}
+
+
+def all_ariva_addresses() -> List[str]:
+    return [ARIVA_COORDINATOR, ARIVA_VAULT, ARIVA_RELAY, ARIVA_ORACLE, ARIVA_SENTINEL]
+
+
+def all_ariva_salts() -> List[str]:
+    return [ARIVA_DOMAIN_SALT, ARIVA_SESSION_SALT, ARIVA_COMPLETION_SEED]
+
+
+def confirm_all_addresses_valid() -> bool:
+    return all(_is_eth_address(a) for a in all_ariva_addresses())
+
+
+def confirm_all_salts_valid() -> bool:
+    def valid_hex(s: str) -> bool:
+        if not s or not s.startswith("0x") or len(s) < 18:
+            return False
+        try:
+            int(s[2:], 16)
+            return True
+        except ValueError:
+            return False
+    return all(valid_hex(s) for s in all_ariva_salts())
+
