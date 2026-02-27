@@ -1318,3 +1318,45 @@ def supported_languages_list() -> List[str]:
 
 def is_valid_language(lang: str) -> bool:
     return is_supported_language(lang)
+
+
+def default_max_completions() -> int:
+    return MAX_COMPLETIONS_PER_LINE
+
+
+def default_max_suggestions() -> int:
+    return MAX_SUGGESTIONS_PER_REQUEST
+
+
+def get_validation_rule_ids() -> List[str]:
+    """Return list of validation rule identifiers used by validate_code."""
+    return ["trailing_whitespace", "max_line_length", "balanced_braces", "no_tabs", "indent_style", "non_empty_file", "max_consecutive_blank_lines"]
+
+
+def get_suggestion_kind_names() -> Dict[int, str]:
+    """Return mapping of suggestion kind id to name."""
+    return {0: "Completion", 1: "Fix", 2: "Hint", 3: "Refactor"}
+
+
+def api_validate_code_simple(platform: AriVaPlatform, code: str) -> bool:
+    """Return True iff code passes all validation rules (no errors)."""
+    result = platform.api_validate_code(code)
+    if isinstance(result, dict) and "valid" in result:
+        return bool(result["valid"])
+    return False
+
+
+def get_platform_version() -> str:
+    return "1.0.0"
+
+
+if __name__ == "__main__":
+    p = create_ariva()
+    coord = ARIVA_COORDINATOR
+    r = p.api_create_session("user_1", coord)
+    print("Session:", r)
+    print("Validate:", p.api_validate_code("def foo():\n  pass  "))
+    print("Config:", p.api_config())
+    print("Addresses unique:", confirm_ariva_addresses_unique())
+    print("Hex unique:", confirm_ariva_hex_unique())
+
