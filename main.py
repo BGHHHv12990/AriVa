@@ -1258,3 +1258,63 @@ def confirm_all_salts_valid() -> bool:
             return False
     return all(valid_hex(s) for s in all_ariva_salts())
 
+
+def get_validation_rule_descriptions() -> Dict[str, str]:
+    return {
+        "ARIVA_NO_TRAILING_WS": "Remove trailing whitespace from line",
+        "ARIVA_MAX_LINE_LEN": "Line exceeds maximum allowed length (120)",
+        "ARIVA_BALANCED_BRACES": "Unbalanced or unclosed bracket",
+        "ARIVA_NO_TABS": "Use spaces instead of tabs",
+        "ARIVA_INDENT": "Indent must be multiple of 4 spaces",
+        "ARIVA_NON_EMPTY": "File must not be empty",
+        "ARIVA_MAX_BLANK": "Too many consecutive blank lines",
+    }
+
+
+def get_suggestion_kind_descriptions() -> Dict[int, str]:
+    return {
+        int(SuggestionKind.COMPLETION): "Code completion",
+        int(SuggestionKind.FIX): "Fix or correction",
+        int(SuggestionKind.HINT): "Hint or tip",
+        int(SuggestionKind.REFACTOR): "Refactoring suggestion",
+    }
+
+
+def get_session_status_descriptions() -> Dict[int, str]:
+    return {
+        int(SessionStatus.ACTIVE): "Session is active",
+        int(SessionStatus.IDLE): "Session is idle",
+        int(SessionStatus.CLOSED): "Session is closed",
+    }
+
+
+def format_validation_for_cli(results: List[Dict[str, Any]]) -> str:
+    lines = []
+    for r in results:
+        if not r.get("passed", True):
+            lines.append(f"  {r.get('rule_id', '?')}: {r.get('message', '')} at line {r.get('line', 0)}, col {r.get('column', 0)}")
+    return "\n".join(lines) if lines else "No issues found."
+
+
+def format_config_for_display(config: Dict[str, Any]) -> List[str]:
+    return [f"{k}: {v}" for k, v in config.items()]
+
+
+def get_default_language() -> str:
+    return "py"
+
+
+def get_max_validation_results() -> int:
+    return 100
+
+
+def ariva_version_info() -> str:
+    return "AriVa code assistant engine v1"
+
+
+def supported_languages_list() -> List[str]:
+    return list(SUPPORTED_LANGUAGES)
+
+
+def is_valid_language(lang: str) -> bool:
+    return is_supported_language(lang)
