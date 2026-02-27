@@ -1078,3 +1078,63 @@ def first_validation_error(results: List[ValidationResult]) -> Optional[Validati
 
 
 def get_rule_id_list() -> List[str]:
+    return get_rule_ids() + ["ARIVA_NON_EMPTY", "ARIVA_MAX_BLANK"]
+
+
+def format_address_short(addr: str, head: int = 6, tail: int = 4) -> str:
+    if not addr or len(addr) < head + tail:
+        return addr or ""
+    return f"{addr[:head]}...{addr[-tail:]}"
+
+
+def format_salt_short(salt: str, max_len: int = 20) -> str:
+    if not salt or len(salt) <= max_len:
+        return salt or ""
+    return salt[:max_len] + "..."
+
+
+def build_create_session_params(user_ref: str) -> Dict[str, Any]:
+    return {"user_ref": user_ref, "caller": ARIVA_COORDINATOR}
+
+
+def build_get_completions_params(session_id: str, prefix: str, language: str = "py") -> Dict[str, Any]:
+    return {"session_id": session_id, "prefix": prefix, "line_context": prefix, "language": language, "max_n": MAX_COMPLETIONS_PER_LINE}
+
+
+def build_get_suggestions_params(session_id: str, query: str, kind: int = 0) -> Dict[str, Any]:
+    return {"session_id": session_id, "query": query, "kind": kind, "max_n": MAX_SUGGESTIONS_PER_REQUEST}
+
+
+def build_validate_code_params(code: str) -> Dict[str, Any]:
+    return {"code": code}
+
+
+def apply_validation_to_code(platform: AriVaPlatform, code: str) -> Tuple[bool, List[Dict[str, Any]]]:
+    r = platform.api_validate_code(code)
+    results = r.get("results", [])
+    passed = not has_validation_errors([ValidationResult(r["passed"], r["rule_id"], r["message"], r.get("line"), r.get("column")) for r in results])
+    return (passed, results)
+
+
+def session_is_active(engine: AriVaEngine, session_id: str) -> bool:
+    s = engine.get_session(session_id)
+    if s is None:
+        return False
+    return s.get("status") == int(SessionStatus.ACTIVE)
+
+
+def user_session_count(engine: AriVaEngine, user_ref: str) -> int:
+    return len(engine.state.user_sessions.get(user_ref, []))
+
+
+def total_session_count(engine: AriVaEngine) -> int:
+    return len(engine.state.sessions)
+
+
+def request_count(engine: AriVaEngine) -> int:
+    return engine.state.request_count
+
+
+def suggestions_served_count(engine: AriVaEngine) -> int:
+    return engine.state.total_suggestions_served
+
