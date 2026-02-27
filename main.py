@@ -1138,3 +1138,63 @@ def request_count(engine: AriVaEngine) -> int:
 def suggestions_served_count(engine: AriVaEngine) -> int:
     return engine.state.total_suggestions_served
 
+
+def get_suggestion_kind_enum_values() -> List[int]:
+    return [int(SuggestionKind.COMPLETION), int(SuggestionKind.FIX), int(SuggestionKind.HINT), int(SuggestionKind.REFACTOR)]
+
+
+def get_session_status_enum_values() -> List[int]:
+    return [int(SessionStatus.ACTIVE), int(SessionStatus.IDLE), int(SessionStatus.CLOSED)]
+
+
+def metadata_ariva() -> Dict[str, Any]:
+    return {
+        "name": "AriVa",
+        "style": "code assistant",
+        "coordinator": ARIVA_COORDINATOR,
+        "vault": ARIVA_VAULT,
+        "domain_salt_prefix": ARIVA_DOMAIN_SALT[:16],
+        "max_suggestions": MAX_SUGGESTIONS_PER_REQUEST,
+        "max_completions": MAX_COMPLETIONS_PER_LINE,
+        "supported_languages": SUPPORTED_LANGUAGES,
+        "validation_ruleset_version": VALIDATION_RULESET_VERSION,
+    }
+
+
+def readiness_ariva(platform: AriVaPlatform) -> Dict[str, Any]:
+    h = health_check_ariva(platform)
+    return {"ready": h.get("ok", False), "health": h}
+
+
+def api_method_param_keys(method: str) -> List[str]:
+    t = get_request_templates()
+    if method not in t:
+        return []
+    return list(t[method].keys())
+
+
+def default_caller() -> str:
+    return ARIVA_COORDINATOR
+
+
+def export_sessions_to_list(engine: AriVaEngine) -> List[Dict[str, Any]]:
+    return export_sessions_summary(engine).get("sessions", [])
+
+
+def filter_sessions_by_status(engine: AriVaEngine, status: int) -> List[str]:
+    return [sid for sid, s in engine.state.sessions.items() if s.status == status]
+
+
+def filter_sessions_by_user(engine: AriVaEngine, user_ref: str) -> List[str]:
+    return list(engine.state.user_sessions.get(user_ref, []))
+
+
+def completion_confidence_threshold() -> float:
+    return 0.5
+
+
+def suggestion_confidence_threshold() -> float:
+    return 0.6
+
+
+def filter_completions_by_confidence(completions: List[Dict[str, Any]], min_conf: float = 0.5) -> List[Dict[str, Any]]:
